@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "reader-for-zotero",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-22",
+  // Required by workers-oauth-provider to fetch Client ID Metadata Documents safely (no private IPs).
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "kv_namespaces": [
+    // Holds OAuth clients, grants and tokens only. Grant props (the Zotero key) are encrypted.
+    // Create with `npx wrangler kv namespace create OAUTH_KV` and paste the id here.
+    { "binding": "OAUTH_KV", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }
+  ],
+  "vars": {
+    // Public origin of this Worker, no trailing slash. Overridden in .dev.vars for local dev.
+    "PUBLIC_URL": "https://reader-for-zotero.example.workers.dev",
+    "SUPPORT_EMAIL": "support@example.com"
+  },
+  // Secrets (set with `npx wrangler secret put <NAME>`): ZOTERO_CLIENT_KEY, ZOTERO_CLIENT_SECRET
+  "observability": {
+    // Only our own console.error lines (error names/status codes; never tokens or library content).
+    // Per-request invocation logs are off so request URLs and headers are not retained.
+    "enabled": true,
+    "logs": { "enabled": true, "invocation_logs": false }
+  },
+  "rules": [{ "type": "Text", "globs": ["**/*.md"], "fallthrough": true }],
+  "triggers": {
+    // Daily sweep of expired grants/tokens.
+    "crons": ["17 3 * * *"]
+  }
+}
