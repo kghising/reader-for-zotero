@@ -18,6 +18,11 @@ export function fakeFetch(): FakeFetch {
   const calls: FakeFetch["calls"] = [];
   const fn = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
+    // Real Zotero answers 500 on /children when the User-Agent looks like a Zotero client ("...Zotero/<version>").
+    const ua = new Headers(init?.headers).get("User-Agent") ?? "";
+    if (url.host === "api.zotero.org" && url.pathname.endsWith("/children") && /zotero\/\d/i.test(ua)) {
+      return new Response("An error occurred", { status: 500 });
+    }
     const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
     calls.push({ url, init });
     const key = `${method} ${url.host}${url.pathname}`;

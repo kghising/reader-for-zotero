@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { parseLibrary, resetBackoffForTests, ZoteroApiError, ZoteroClient } from "../src/zotero/client";
+import { describeRequest, parseLibrary, resetBackoffForTests, USER_AGENT, ZoteroApiError, ZoteroClient } from "../src/zotero/client";
 import { API_KEY, fakeFetch, json } from "./fixtures";
 
 const ITEMS = "GET api.zotero.org/users/1/items";
@@ -95,6 +95,43 @@ describe("ZoteroClient", () => {
     await Promise.all(Array.from({ length: 10 }, () => client.getJson("/users/1/items")));
     expect(f.calls).toHaveLength(10);
     expect(peak).toBe(4);
+  });
+});
+
+describe("User-Agent", () => {
+  it("never contains a Zotero/<version> token (Zotero answers 500 on /children for those)", async () => {
+    expect(USER_AGENT).not.toMatch(/zotero\/\d/i);
+    expect(USER_AGENT).toMatch(/^ReaderForZotero \(\+https:\/\//);
+    const f = fakeFetch();
+    f.on("GET api.zotero.org/users/1/items/ABCD2345/children", () => json([]));
+    const client = new ZoteroClient({ apiKey: API_KEY, fetch: f.fetch });
+    await client.getJson("/users/1/items/ABCD2345/children");
+    expect(new Headers(f.calls[0]!.init?.headers).get("User-Agent")).toBe(USER_AGENT);
+  });
+});
+
+describe("failure diagnostics", () => {
+  it("logs the masked route, status and Zotero's message, never ids, keys or values", async () => {
+    const f = fakeFetch();
+    f.on("GET api.zotero.org/users/12345/items/ABCD2345/children", () => new Response("An error occurred", { status: 500 }));
+    const logs: string[] = [];
+    const orig = console.error;
+    console.error = (...a: unknown[]) => void logs.push(a.join(" "));
+    try {
+      const client = new ZoteroClient({ apiKey: API_KEY, fetch: f.fetch, sleep: async () => {} });
+      const err = await client.getJson("/users/12345/items/ABCD2345/children", { q: "secret search" }).catch((e) => e);
+      expect(err).toMatchObject({ status: 500, message: "Zotero API error (HTTP 500): An error occurred" });
+    } finally {
+      console.error = orig;
+    }
+    expect(logs).toEqual(["zotero upstream 500 GET /users/:id/items/:key/children ?format,q | An error occurred"]);
+    expect(logs.join()).not.toMatch(/12345|ABCD2345|secret search|TESTKEY/);
+  });
+
+  it("describeRequest keeps word segments like children/fulltext", () => {
+    expect(describeRequest(new URL("https://api.zotero.org/groups/9/items/ABCD2345/fulltext?limit=1"))).toBe(
+      "/groups/:id/items/:key/fulltext ?limit",
+    );
   });
 });
 

@@ -86,6 +86,8 @@ export function buildServer(props: GrantProps, deps: ServerDeps = {}): McpServer
         }
         return {
           libraries,
+          // What the Zotero key itself allows (not secret): helps explain empty or refused results.
+          key_permissions: key.access?.user ?? {},
           ...(Object.keys(groupAccess).length === 0 && {
             note: "This connection has no group access. Reconnect and allow group access to read group libraries.",
           }),

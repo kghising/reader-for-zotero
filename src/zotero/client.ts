@@ -4,6 +4,9 @@
 
 export const ZOTERO_API_BASE = "https://api.zotero.org";
 const MAX_CONCURRENCY = 4;
+// Identify ourselves, but never with a "<anything>Zotero/<version>" product token: Zotero's API treats that as a
+// Zotero client and answers HTTP 500 on /items/<key>/children (verified live, 2026-10-31). "ReaderForZotero (+url)" works.
+export const USER_AGENT = "ReaderForZotero (+https://github.com/kghising/reader-for-zotero)";
 /** Longest wait we absorb inside a tool call before telling the user to retry later. */
 const MAX_INLINE_WAIT_MS = 3000;
 const MAX_RETRIES = 2;
@@ -109,7 +112,7 @@ export class ZoteroClient {
           headers: {
             "Zotero-API-Version": "3",
             Authorization: `Bearer ${this.#apiKey}`,
-            "User-Agent": "ReaderForZotero/0.1 (+https://github.com/kghising/reader-for-zotero)",
+            "User-Agent": USER_AGENT,
           },
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         });
@@ -147,7 +150,7 @@ export class ZoteroClient {
         await this.#sleep(500);
         continue;
       }
-      throw await toApiError(res);
+      throw await toApiError(res, url);
     }
   }
 
@@ -184,9 +187,20 @@ function parseSeconds(value: string | null): number | undefined {
   return Number.isFinite(n) && n >= 0 ? n : undefined;
 }
 
-async function toApiError(res: Response): Promise<ZoteroApiError> {
+/** The route with user/group IDs and item keys masked, plus query parameter *names* only: safe to log. */
+export function describeRequest(url: URL): string {
+  const route = url.pathname
+    .replace(/^\/(users|groups)\/\d+/, "/$1/:id")
+    .replace(/\/[A-Z0-9]{8}(?=\/|$)/g, "/:key");
+  const names = [...new Set(url.searchParams.keys())].sort().join(",");
+  return `${route}${names ? ` ?${names}` : ""}`;
+}
+
+async function toApiError(res: Response, url: URL): Promise<ZoteroApiError> {
   // Zotero's 4xx bodies are short plain-text explanations ("Invalid 'itemType' value"); keep them, bounded.
   const detail = (await res.text().catch(() => "")).replace(/\s+/g, " ").trim().slice(0, 300);
+  // Diagnostics for failing calls: masked route, status and Zotero's own error text. Never the key, IDs or values.
+  console.error(`zotero upstream ${res.status} GET ${describeRequest(url)} | ${detail.slice(0, 200) || "(no body)"}`);
   switch (res.status) {
     case 400:
       return new ZoteroApiError(`Zotero rejected the request: ${detail || "bad request"}`, 400);

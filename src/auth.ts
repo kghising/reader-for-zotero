@@ -35,6 +35,10 @@ export const authHandler: ExportedHandler<Env> = {
       }
       return new Response("Not found", { status: 404 });
     } catch (e) {
+      // Diagnostics: path, error text and cookie *names* only (never values, query strings or tokens).
+      const names = (request.headers.get("Cookie") ?? "").split(";").map((c) => c.trim().split("=")[0]).filter(Boolean);
+      const what = e instanceof AuthorizationError ? `${e.code}: ${e.description}` : e instanceof Error ? e.name : typeof e;
+      console.error(`auth error ${request.method} ${url.pathname} | ${what} | cookies: ${names.join(",") || "none"}`);
       return authErrorResponse(e);
     }
   },
@@ -44,7 +48,8 @@ async function showConsent(request: Request, env: Env): Promise<Response> {
   const authRequest = await env.OAUTH_PROVIDER.parseAuthRequest(request);
   const description = await env.OAUTH_PROVIDER.describeConsent(authRequest);
   const { handle, headers } = await env.OAUTH_PROVIDER.beginConsent(authRequest);
-  return htmlResponse(consentPage(description, handle, authRequest.scope.includes("offline_access")), 200, headers);
+  const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
+  return htmlResponse(consentPage(description, handle, authRequest.scope.includes("offline_access"), nonce), 200, headers, nonce);
 }
 
 async function handleConsent(request: Request, env: Env): Promise<Response> {

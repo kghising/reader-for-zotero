@@ -350,6 +350,23 @@ describe("OAuth bridge", () => {
     expect(res.headers.get("Location")).toBeNull();
   });
 
+  it("consent page lets the post-approval redirects through and blocks double submits", async () => {
+    const clientId = await register();
+    const { challenge } = await pkce();
+    const q = new URLSearchParams({
+      response_type: "code", client_id: clientId, redirect_uri: CLAUDE_CALLBACK, scope: "zotero.read",
+      state: "s", code_challenge: challenge, code_challenge_method: "S256", resource: RESOURCE,
+    });
+    const res = await new Browser().fetch(`${BASE}/authorize?${q}`);
+    const csp = res.headers.get("Content-Security-Policy")!;
+    // Chrome applies form-action to the redirect after a POST: zotero.org and the client callback must be allowed.
+    expect(csp).toMatch(/form-action 'self' https: http:\/\/localhost:\*/);
+    const nonce = /script-src 'nonce-([^']+)'/.exec(csp)![1]!;
+    const html = await res.text();
+    expect(html).toContain(`<script nonce="${nonce}">`);
+    expect(html).toContain("f.dataset.sent");
+  });
+
   it("serves the landing and privacy pages", async () => {
     const home = await new Browser().fetch(`${BASE}/`);
     expect(await home.text()).toContain(`${BASE}/mcp`);

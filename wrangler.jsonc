@@ -8,12 +8,12 @@
   "kv_namespaces": [
     // Holds OAuth clients, grants and tokens only. Grant props (the Zotero key) are encrypted.
     // Create with `npx wrangler kv namespace create OAUTH_KV` and paste the id here.
-    { "binding": "OAUTH_KV", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }
+    { "binding": "OAUTH_KV", "id": "161468690c574632a0346c38f962d57f" }
   ],
   "vars": {
     // Public origin of this Worker, no trailing slash. Overridden in .dev.vars for local dev.
-    "PUBLIC_URL": "https://reader-for-zotero.example.workers.dev",
-    "SUPPORT_EMAIL": "support@example.com"
+    "PUBLIC_URL": "https://reader-for-zotero.libraryconnect.workers.dev",
+    "SUPPORT_EMAIL": "kghisinga@gmail.com"
   },
   // Secrets (set with `npx wrangler secret put <NAME>`): ZOTERO_CLIENT_KEY, ZOTERO_CLIENT_SECRET
   "observability": {

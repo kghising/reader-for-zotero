@@ -23,21 +23,27 @@ export function layout(title: string, body: string): string {
 <a href="/privacy">Privacy</a></footer></main></body></html>`;
 }
 
+// form-action also governs the redirect that follows a form POST (Chrome enforces this). After consent we
+// redirect to zotero.org and then back to the client's redirect URI (https, or loopback for Claude Code),
+// so 'self' alone would silently block the sign-in. The library only ever redirects to registered URIs.
+export const CONSENT_FORM_ACTION = "form-action 'self' https: http://localhost:* http://127.0.0.1:* http://[::1]:*";
+
 const SECURITY_HEADERS = {
   "Content-Type": "text/html; charset=utf-8",
-  "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+  "Content-Security-Policy": `default-src 'none'; style-src 'unsafe-inline'; ${CONSENT_FORM_ACTION}; frame-ancestors 'none'; base-uri 'none'`,
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "no-referrer",
   "X-Content-Type-Options": "nosniff",
 };
 
-export function htmlResponse(html: string, status = 200, extra?: Headers): Response {
+export function htmlResponse(html: string, status = 200, extra?: Headers, scriptNonce?: string): Response {
   const headers = new Headers(SECURITY_HEADERS);
+  if (scriptNonce) headers.set("Content-Security-Policy", `${headers.get("Content-Security-Policy")}; script-src 'nonce-${scriptNonce}'`);
   extra?.forEach((v, k) => headers.append(k, v));
   return new Response(html, { status, headers });
 }
 
-export function consentPage(c: ConsentDescription, handle: string, wantsRefresh: boolean): string {
+export function consentPage(c: ConsentDescription, handle: string, wantsRefresh: boolean, nonce: string): string {
   const who = c.clientDomain
     ? `<strong>${escapeHtml(c.clientName)}</strong> <span class="muted">(verified domain: ${escapeHtml(c.clientDomain)})</span>`
     : `<strong>${escapeHtml(c.clientName)}</strong> <span class="muted">(name provided by the app, not verified)</span>`;
@@ -55,11 +61,19 @@ ${loopback}
 <ul><li>search and list your items, collections and tags</li><li>read metadata, abstracts, notes and annotations</li>
 <li>read the indexed full text of your attachments</li><li>read group libraries you allow on the next page</li></ul>
 <p>It cannot change or delete anything. Next you'll sign in at <strong>zotero.org</strong> and approve a read-only API key.</p>
-<form method="post" action="/authorize">
+<form method="post" action="/authorize" id="consent">
 <input type="hidden" name="handle" value="${escapeHtml(handle)}">${wantsRefresh ? '<input type="hidden" name="offline" value="1">' : ""}
 <div class="actions"><button class="primary" type="submit" name="action" value="approve">Continue to Zotero</button>
 <button type="submit" name="action" value="deny">Cancel</button></div>
-</form></div>`,
+<p class="muted" id="busy" hidden>Working… you'll be sent to Zotero in a moment. Please don't click again.</p>
+</form></div>
+<script nonce="${escapeHtml(nonce)}">
+// One submit only: a second POST would consume the already-used consent handle and show an error.
+var f=document.getElementById("consent");f.addEventListener("submit",function(e){
+if(f.dataset.sent){e.preventDefault();return}f.dataset.sent="1";
+document.getElementById("busy").hidden=false;
+setTimeout(function(){f.querySelectorAll("button").forEach(function(b){b.disabled=true})},0)});
+</script>`,
   );
 }
 
