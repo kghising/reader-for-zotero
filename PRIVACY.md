@@ -1,6 +1,6 @@
 # Privacy policy
 
-**Reader for Zotero** · Effective date: [DATE] · Operator: [YOUR NAME] · Contact: [SUPPORT EMAIL]
+**Reader for Zotero** · Effective date: October 31, 2026 · Operator: Kishor Ghising · Contact: kghisinga@gmail.com
 
 Reader for Zotero is an independent, open-source connector that lets Claude read your Zotero library at your request. It is not affiliated with or endorsed by Zotero, the Corporation for Digital Scholarship, or Anthropic.
 
@@ -59,4 +59,4 @@ We will post changes here and update the effective date. For significant changes
 
 ## Contact
 
-[YOUR NAME] · [SUPPORT EMAIL] · Issues: [github.com/kghising/reader-for-zotero/issues](https://github.com/kghising/reader-for-zotero/issues)
+Kishor Ghising · kghisinga@gmail.com · Issues: [github.com/kghising/reader-for-zotero/issues](https://github.com/kghising/reader-for-zotero/issues)
